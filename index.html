@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GuardRail RG | Live Player Telemetry & Responsible Gaming</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-primary: #0A0D14;
+      --bg-card: #121723;
+      --bg-card-hover: #192030;
+      --border-color: #1F293D;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --safe: #10B981;
+      --warn: #F59E0B;
+      --risk: #EF4444;
+      --accent: #3B82F6;
+    }
+
+    /* Calm Mode Accessibility Palette */
+    body.calm-mode {
+      --bg-primary: #141C24;
+      --bg-card: #1C2631;
+      --bg-card-hover: #24303F;
+      --border-color: #2D3B4E;
+      --text-main: #E2E8F0;
+      --text-muted: #8FA3B8;
+      --safe: #4E9F86;
+      --warn: #D49B54;
+      --risk: #C86D6D;
+      --accent: #5B8BB4;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      transition: background-color 0.6s cubic-bezier(0.4, 0, 0.2, 1), color 0.6s ease;
+      overflow-x: hidden;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .telemetry-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      transition: background-color 0.6s ease, border-color 0.6s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    }
+
+    /* Rotating Sonar Rings */
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes spin-reverse {
+      from { transform: rotate(360deg); }
+      to { transform: rotate(0deg); }
+    }
+    @keyframes radar-sweep {
+      0% { transform: rotate(0deg); opacity: 0.75; }
+      50% { opacity: 0.35; }
+      100% { transform: rotate(360deg); opacity: 0.75; }
+    }
+
+    .sonar-ring-1 {
+      animation: spin-slow 18s linear infinite;
+    }
+    .sonar-ring-2 {
+      animation: spin-reverse 26s linear infinite;
+    }
+    .sonar-sweep {
+      animation: radar-sweep 4s linear infinite;
+      transform-origin: center;
+    }
+
+    body.calm-mode .sonar-ring-1,
+    body.calm-mode .sonar-ring-2,
+    body.calm-mode .sonar-sweep {
+      animation-duration: 45s;
+    }
+
+    /* Pulsing Risk Badges */
+    @keyframes pulse-risk {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+      50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    }
+    @keyframes pulse-warn {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+    }
+
+    .badge-risk-pulse {
+      animation: pulse-risk 1.8s infinite;
+    }
+    .badge-warn-pulse {
+      animation: pulse-warn 2.4s infinite;
+    }
+    body.calm-mode .badge-risk-pulse,
+    body.calm-mode .badge-warn-pulse {
+      animation: none;
+    }
+
+    /* Gauge Progress Arc Transition */
+    #gauge-arc {
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.5s ease;
+    }
+    #gauge-needle {
+      transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      transform-origin: 120px 120px;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
+
+  <!-- TOP TELEMETRY NAVBAR -->
+  <header class="telemetry-card border-b sticky top-0 z-30 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center relative">
+        <i data-lucide="shield-alert" class="w-5 h-5 text-emerald-400"></i>
+        <span class="w-2 h-2 rounded-full bg-emerald-400 absolute -top-0.5 -right-0.5 animate-ping"></span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-lg tracking-tight">GuardRail <span class="text-emerald-400 font-mono-tech">RG</span></h1>
+          <span class="text-[10px] font-mono-tech uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">B2B Telemetry v4.2</span>
+        </div>
+        <p class="text-xs text-slate-400">Real-Time Behavioral Harm Detection & Automated Intervention Engine</p>
+      </div>
+    </div>
+
+    <!-- Live System Tickers & Calm Mode Switch -->
+    <div class="flex items-center gap-6">
+      <div class="hidden xl:flex items-center gap-6 text-xs font-mono-tech">
+        <div>
+          <span class="text-slate-400 block text-[10px]">STREAM LATENCY</span>
+          <span class="text-emerald-400 font-semibold" id="latency-val">14 ms</span>
+        </div>
+        <div>
+          <span class="text-slate-400 block text-[10px]">MONITORED SESSIONS</span>
+          <span class="text-white font-semibold" id="sessions-val">18,492</span>
+        </div>
+        <div>
+          <span class="text-slate-400 block text-[10px]">AUTO-INTERVENTIONS (24H)</span>
+          <span class="text-amber-400 font-semibold" id="interventions-val">342</span>
+        </div>
+      </div>
+
+      <!-- Calm Mode Toggle -->
+      <div class="flex items-center gap-3 pl-4 border-l border-slate-800">
+        <div class="text-right">
+          <span class="text-xs font-medium block">Calm Mode</span>
+          <span class="text-[10px] text-slate-400 block" id="calm-status-text">High-Contrast Telemetry</span>
+        </div>
+        <button id="calm-toggle" role="switch" aria-checked="false" class="w-12 h-6 rounded-full bg-slate-800 border border-slate-700 p-0.5 flex items-center transition-colors duration-300 focus:outline-none">
+          <div id="calm-knob" class="w-5 h-5 rounded-full bg-slate-300 shadow-md transform transition-transform duration-300 flex items-center justify-center">
+            <i data-lucide="eye" class="w-3 h-3 text-slate-900"></i>
+          </div>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- BEHAVIOR SIMULATOR CONTROL BAR -->
+  <div class="bg-slate-900/60 border-b border-slate-800/80 px-6 py-2.5">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 text-xs font-mono-tech text-slate-300">
+        <i data-lucide="sliders" class="w-4 h-4 text-blue-400"></i>
+        <span>Behavior Simulator:</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button onclick="simulatePlayerState('safe')" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-medium flex items-center gap-1.5 transition">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Simulate Casual Player (Safe)
+        </button>
+        <button onclick="simulatePlayerState('warning')" class="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-medium flex items-center gap-1.5 transition">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span> Simulate Loss-Chasing (Warning)
+        </button>
+        <button onclick="simulatePlayerState('critical')" class="px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 text-xs font-medium flex items-center gap-1.5 transition">
+          <span class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span> Simulate Rapid Tilt (Critical Risk)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN DASHBOARD GRID -->
+  <main class="flex-1 p-6 max-w-[1600px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- LEFT COLUMN: CIRCULAR RISK RADAR GAUGE & BIOMETRICS (4 COLS) -->
+    <section class="lg:col-span-4 flex flex-col gap-6">
+      
+      <!-- Radar Gauge Card -->
+      <div class="telemetry-card rounded-xl p-5 flex flex-col items-center relative overflow-hidden">
+        <div class="w-full flex items-center justify-between mb-2">
+          <div>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <i data-lucide="radar" class="w-4 h-4 text-blue-400"></i>
+              Composite Risk Radar
+            </h2>
+            <p class="text-xs text-slate-400" id="focused-player-label">Target: Player #PL-8841 (Slot Velocity Spike)</p>
+          </div>
+          <span id="radar-status-pill" class="px-2.5 py-1 rounded-full text-xs font-mono-tech font-semibold bg-red-500/15 text-red-400 border border-red-500/30 badge-risk-pulse">
+            HIGH RISK
+          </span>
+        </div>
+
+        <!-- Animated SVG Sonar & Circular Gauge -->
+        <div class="relative w-64 h-64 my-2 flex items-center justify-center">
+          <svg class="w-full h-full" viewBox="0 0 240 240">
+            <defs>
+              <radialGradient id="sonarGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.0"/>
+                <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.12"/>
+              </radialGradient>
+            </defs>
+
+            <!-- Sonar Grid Circles -->
+            <circle cx="120" cy="120" r="105" fill="url(#sonarGrad)" stroke="currentColor" class="text-slate-800" stroke-width="1" />
+            <circle cx="120" cy="120" r="78" fill="none" stroke="currentColor" class="text-slate-800/70" stroke-dasharray="3 3" stroke-width="1" />
+            <circle cx="120" cy="120" r="52" fill="none" stroke="currentColor" class="text-slate-800/70" stroke-width="1" />
+
+            <!-- Rotating Sonar Outer Ring 1 -->
+            <g class="sonar-ring-1" style="transform-origin: 120px 120px;">
+              <circle cx="120" cy="120" r="100" fill="none" stroke="#3B82F6" stroke-opacity="0.3" stroke-width="1.5" stroke-dasharray="18 28 6 14" />
+            </g>
+
+            <!-- Rotating Sonar Inner Ring 2 -->
+            <g class="sonar-ring-2" style="transform-origin: 120px 120px;">
+              <circle cx="120" cy="120" r="66" fill="none" stroke="#10B981" stroke-opacity="0.25" stroke-width="1.5" stroke-dasharray="10 20" />
+            </g>
+
+            <!-- Radar Crosshairs -->
+            <line x1="120" y1="15" x2="120" y2="225" stroke="currentColor" class="text-slate-800/60" stroke-width="1" />
+            <line x1="15" y1="120" x2="225" y2="120" stroke="currentColor" class="text-slate-800/60" stroke-width="1" />
+
+            <!-- Background Gauge Track -->
+            <circle cx="120" cy="120" r="88" fill="none" stroke="#1E293B" stroke-width="10" stroke-linecap="round"
+                    stroke-dasharray="415 553" stroke-dashoffset="0" transform="rotate(135 120 120)" />
+
+            <!-- Animated Foreground Risk Arc -->
+            <circle id="gauge-arc" cx="120" cy="120" r="88" fill="none" stroke="#EF4444" stroke-width="10" stroke-linecap="round"
+                    stroke-dasharray="415 553" stroke-dashoffset="80" transform="rotate(135 120 120)" />
+
+            <!-- Animated Needle -->
+            <g id="gauge-needle" style="transform: rotate(95deg);">
+              <polygon points="117,120 123,120 120,40" fill="#F8FAFC" opacity="0.85" />
+              <circle cx="120" cy="120" r="7" fill="#3B82F6" stroke="#0A0D14" stroke-width="2" />
+            </g>
+          </svg>
+
+          <!-- Center Readout Overlay -->
+          <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-12">
+            <span id="risk-score-val" class="text-4xl font-bold font-mono-tech tracking-tight text-red-400">84%</span>
+            <span class="text-[10px] font-mono-tech uppercase tracking-widest text-slate-400 mt-0.5">HARM INDEX</span>
+          </div>
+        </div>
+
+        <!-- Telemetry Factor Breakdown -->
+        <div class="w-full grid grid-cols-3 gap-2 pt-3 border-t border-slate-800/80 text-center">
+          <div class="p-2 rounded-lg bg-slate-900/50">
+            <span class="text-[10px] text-slate-400 block">CHASING LOSS</span>
+            <span id="factor-chasing" class="font-mono-tech text-sm font-semibold text-red-400">HIGH (0.89)</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-900/50">
+            <span class="text-[10px] text-slate-400 block">STAKE ESCALATION</span>
+            <span id="factor-stake" class="font-mono-tech text-sm font-semibold text-amber-400">+240%</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-900/50">
+            <span class="text-[10px] text-slate-400 block">SESSION DURATION</span>
+            <span id="factor-duration" class="font-mono-tech text-sm font-semibold text-emerald-400">03h 42m</span>
+          </div>
+        </div>
+
+        <!-- Working GuardRail Intervention Action Controls -->
+        <div class="w-full mt-4 grid grid-cols-3 gap-1.5">
+          <button onclick="executeAction('Reality-Check Popup')" class="py-2 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-medium flex flex-col items-center justify-center gap-1 transition">
+            <i data-lucide="bell-ring" class="w-3.5 h-3.5"></i> Reality Check
+          </button>
+          <button onclick="executeAction('24-Hour Cool-Off')" class="py-2 px-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-[11px] font-medium flex flex-col items-center justify-center gap-1 transition">
+            <i data-lucide="shield-ban" class="w-3.5 h-3.5"></i> 24h Cool-Off
+          </button>
+          <button onclick="executeAction('Deposit Limit')" class="py-2 px-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 text-[11px] font-medium flex flex-col items-center justify-center gap-1 transition">
+            <i data-lucide="lock" class="w-3.5 h-3.5"></i> Deposit Cap
+          </button>
+        </div>
+      </div>
+
+      <!-- Regulatory Compliance & GuardRail Log -->
+      <div class="telemetry-card rounded-xl p-5 flex-1 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <i data-lucide="cpu" class="w-4 h-4 text-emerald-400"></i>
+              Automated GuardRail Triggers
+            </h3>
+            <span class="text-[11px] font-mono-tech text-emerald-400">UKGC / MGA ACTIVE</span>
+          </div>
+          <div id="audit-log" class="space-y-2 text-xs font-mono-tech max-h-40 overflow-y-auto pr-1">
+            <div class="p-2 rounded bg-slate-900/70 border-l-2 border-red-500 flex justify-between">
+              <span class="text-slate-300">#PL-8841 Stake limit auto-capped</span>
+              <span class="text-slate-500">Just now</span>
+            </div>
+            <div class="p-2 rounded bg-slate-900/70 border-l-2 border-amber-500 flex justify-between">
+              <span class="text-slate-300">#PL-3092 Mandatory 60m pop-up</span>
+              <span class="text-slate-500">14s ago</span>
+            </div>
+            <div class="p-2 rounded bg-slate-900/70 border-l-2 border-emerald-500 flex justify-between">
+              <span class="text-slate-300">#PL-1104 Affordability verified</span>
+              <span class="text-slate-500">42s ago</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <span>AI Harm Model Confidence</span>
+          <span class="font-mono-tech text-emerald-400 font-semibold">99.2% ROC-AUC</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: LIVE TELEMETRY CHARTS & ACTIVE PLAYER QUEUE (8 COLS) -->
+    <section class="lg:col-span-8 flex flex-col gap-6">
+
+      <!-- Top Row: 2 Live Animated Charts -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Chart 1: Betting Speed Per Minute -->
+        <div class="telemetry-card rounded-xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                Betting Speed per Minute
+              </h3>
+              <p class="text-xs text-slate-400">Live spin/wager frequency vs. Safe Threshold (20/min)</p>
+            </div>
+            <div class="text-right font-mono-tech">
+              <span id="live-cpm-val" class="text-lg font-bold text-amber-400">34</span>
+              <span class="text-[10px] text-slate-400 block">BETS / MIN</span>
+            </div>
+          </div>
+          <div class="h-48 w-full">
+            <canvas id="betSpeedChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Session Loss Velocity -->
+        <div class="telemetry-card rounded-xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="trending-down" class="w-4 h-4 text-red-400"></i>
+                Session Loss Velocity (€/min)
+              </h3>
+              <p class="text-xs text-slate-400">Net balance depletion acceleration & deposit spikes</p>
+            </div>
+            <div class="text-right font-mono-tech">
+              <span id="live-loss-val" class="text-lg font-bold text-red-400">-€48.50</span>
+              <span class="text-[10px] text-slate-400 block">EUR / MIN</span>
+            </div>
+          </div>
+          <div class="h-48 w-full">
+            <canvas id="lossVelocityChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Bottom Row: Live Active Players Telemetry Queue -->
+      <div class="telemetry-card rounded-xl p-5 flex-1 flex flex-col">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i>
+              Live Player Risk Telemetry Queue
+              <span class="ml-2 px-2 py-0.5 text-[10px] font-mono-tech rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">STREAMING</span>
+            </h3>
+            <p class="text-xs text-slate-400">Click any row to lock the Circular Risk Radar onto that player's telemetry feed</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-800">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span> Critical (3)
+            </span>
+            <span class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-800">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span> Warning (2)
+            </span>
+            <span class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-800">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Safe (3)
+            </span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-[11px] font-mono-tech uppercase text-slate-400">
+                <th class="py-2.5 px-3">Player ID</th>
+                <th class="py-2.5 px-3">Vertical / Vertical Channel</th>
+                <th class="py-2.5 px-3">Bet Speed</th>
+                <th class="py-2.5 px-3">Loss Velocity</th>
+                <th class="py-2.5 px-3">Behavioral Flag</th>
+                <th class="py-2.5 px-3 text-right">Risk Status</th>
+              </tr>
+            </thead>
+            <tbody id="player-queue-body" class="divide-y divide-slate-800/60 text-xs font-mono-tech">
+              <!-- Populated and animated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- PLAYER REALITY-CHECK POPUP PREVIEW MODAL -->
+  <div id="popup-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-[#121723] border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+      <div class="absolute top-4 right-4">
+        <button onclick="closePopupModal()" class="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800/60 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+          <i data-lucide="clock" class="w-5 h-5 text-amber-400"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-base text-white">Mandatory Reality Check</h3>
+          <p class="text-xs text-slate-400" id="modal-player-subtitle">Player #PL-8841 Session Summary</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-800 space-y-3 mb-6 font-mono-tech text-xs">
+        <div class="flex justify-between items-center pb-2 border-b border-slate-800/60">
+          <span class="text-slate-400">Total Active Session Time:</span>
+          <span class="text-white font-semibold">03 hours 42 minutes</span>
+        </div>
+        <div class="flex justify-between items-center pb-2 border-b border-slate-800/60">
+          <span class="text-slate-400">Total Wagers Placed:</span>
+          <span class="text-amber-400 font-semibold">€1,420.00</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-slate-400">Net Session Balance:</span>
+          <span class="text-red-400 font-semibold">-€385.50</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-300 mb-6 leading-relaxed">
+        You have been playing continuously for over 3 hours. Gambling should be fun and entertaining, not a way to recover losses. Would you like to take a break or set a deposit limit?
+      </p>
+
+      <div class="flex gap-3">
+        <button onclick="executeAction('Break Accepted via Popup')" class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold text-xs transition flex items-center justify-center gap-1.5">
+          <i data-lucide="check-circle" class="w-4 h-4"></i> Take a Break (24h)
+        </button>
+        <button onclick="closePopupModal()" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition">
+          Continue Playing
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Player Queue Seed Data
+    const players = [
+      { id: '#PL-8841', game: 'High-Volatility Slots', cpm: 38, lossVel: -54.20, flag: 'Rapid Failed Deposits (x4)', score: 84, status: 'HIGH RISK', chasing: 'HIGH (0.89)', stake: '+240%', duration: '03h 42m' },
+      { id: '#PL-4920', game: 'Lightning Roulette Live', cpm: 29, lossVel: -41.80, flag: 'Martingale Doubling Detected', score: 78, status: 'HIGH RISK', chasing: 'HIGH (0.84)', stake: '+190%', duration: '02h 15m' },
+      { id: '#PL-3092', game: 'In-Play Tennis Microbets', cpm: 24, lossVel: -22.50, flag: 'Late-Night Session Anomaly', score: 58, status: 'WARNING', chasing: 'MED (0.55)', stake: '+85%', duration: '04h 05m' },
+      { id: '#PL-7719', game: 'Crash Multiplier Turbo', cpm: 42, lossVel: -63.10, flag: 'Cancelled Withdrawal + All-In', score: 92, status: 'HIGH RISK', chasing: 'CRIT (0.96)', stake: '+380%', duration: '01h 50m' },
+      { id: '#PL-6103', game: 'Blackjack VIP Table 2', cpm: 18, lossVel: -15.40, flag: 'Slightly Elevated Pace', score: 46, status: 'WARNING', chasing: 'LOW (0.38)', stake: '+40%', duration: '01h 28m' },
+      { id: '#PL-1104', game: 'European Sportsbook', cpm: 6, lossVel: -3.20, flag: 'Within Deposit Limits', score: 14, status: 'SAFE', chasing: 'NONE (0.08)', stake: '0%', duration: '00h 45m' },
+      { id: '#PL-9951', game: 'Classic Video Slots', cpm: 11, lossVel: -4.80, flag: 'Normal Recreational Pattern', score: 19, status: 'SAFE', chasing: 'NONE (0.12)', stake: '+5%', duration: '00h 52m' }
+    ];
+
+    let selectedPlayerIndex = 0;
+    let isCalmMode = false;
+
+    // Color Helpers
+    function getThemeColors() {
+      return isCalmMode
+        ? { safe: '#4E9F86', warn: '#D49B54', risk: '#C86D6D', grid: 'rgba(148, 163, 184, 0.08)' }
+        : { safe: '#10B981', warn: '#F59E0B', risk: '#EF4444', grid: 'rgba(148, 163, 184, 0.12)' };
+    }
+
+    // Render Player Queue Table
+    function renderPlayerQueue() {
+      const tbody = document.getElementById('player-queue-body');
+      tbody.innerHTML = '';
+
+      players.forEach((p, idx) => {
+        const isSelected = idx === selectedPlayerIndex;
+        let badgeClass = '';
+        let dotColor = '';
+
+        if (p.score >= 70) {
+          p.status = 'HIGH RISK';
+          badgeClass = 'bg-red-500/15 text-red-400 border-red-500/30 badge-risk-pulse';
+          dotColor = 'bg-red-500';
+        } else if (p.score >= 40) {
+          p.status = 'WARNING';
+          badgeClass = 'bg-amber-500/15 text-amber-400 border-amber-500/30 badge-warn-pulse';
+          dotColor = 'bg-amber-500';
+        } else {
+          p.status = 'SAFE';
+          badgeClass = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+          dotColor = 'bg-emerald-500';
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = `cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/10' : 'hover:bg-slate-800/40'}`;
+        tr.onclick = () => {
+          selectedPlayerIndex = idx;
+          updateRadarGauge(players[selectedPlayerIndex]);
+          renderPlayerQueue();
+        };
+
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-semibold text-white flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+            ${p.id}
+            ${isSelected ? '<span class="text-[10px] px-1.5 py-0.2 bg-blue-500/20 text-blue-300 rounded">LOCKED</span>' : ''}
+          </td>
+          <td class="py-3 px-3 text-slate-300 font-sans">${p.game}</td>
+          <td class="py-3 px-3 ${p.cpm > 25 ? 'text-amber-400 font-semibold' : 'text-slate-300'}">${p.cpm} /min</td>
+          <td class="py-3 px-3 ${p.lossVel < -30 ? 'text-red-400 font-semibold' : 'text-slate-300'}">-€${Math.abs(p.lossVel).toFixed(2)}/m</td>
+          <td class="py-3 px-3 text-slate-400 font-sans text-xs">${p.flag}</td>
+          <td class="py-3 px-3 text-right">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] border ${badgeClass}">
+              ${p.score}% • ${p.status}
+            </span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Update Circular Risk Radar Gauge (0-100%)
+    function updateRadarGauge(player) {
+      const score = Math.max(0, Math.min(100, player.score));
+      const maxArcLength = 415; // 270 degree arc
+      const offset = maxArcLength - (score / 100) * maxArcLength;
+      const needleDeg = -135 + (score / 100) * 270;
+
+      const arcEl = document.getElementById('gauge-arc');
+      const needleEl = document.getElementById('gauge-needle');
+      const scoreEl = document.getElementById('risk-score-val');
+      const pillEl = document.getElementById('radar-status-pill');
+      const colors = getThemeColors();
+
+      arcEl.style.strokeDashoffset = offset;
+      needleEl.style.transform = `rotate(${needleDeg}deg)`;
+      scoreEl.textContent = `${score}%`;
+
+      document.getElementById('focused-player-label').textContent = `Target: Player ${player.id} (${player.game})`;
+      document.getElementById('factor-chasing').textContent = player.chasing;
+      document.getElementById('factor-stake').textContent = player.stake;
+      document.getElementById('factor-duration').textContent = player.duration;
+
+      if (score >= 70) {
+        arcEl.style.stroke = colors.risk;
+        scoreEl.className = 'text-4xl font-bold font-mono-tech tracking-tight text-red-400';
+        pillEl.textContent = 'HIGH RISK';
+        pillEl.className = 'px-2.5 py-1 rounded-full text-xs font-mono-tech font-semibold bg-red-500/15 text-red-400 border border-red-500/30 badge-risk-pulse';
+      } else if (score >= 40) {
+        arcEl.style.stroke = colors.warn;
+        scoreEl.className = 'text-4xl font-bold font-mono-tech tracking-tight text-amber-400';
+        pillEl.textContent = 'WARNING';
+        pillEl.className = 'px-2.5 py-1 rounded-full text-xs font-mono-tech font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 badge-warn-pulse';
+      } else {
+        arcEl.style.stroke = colors.safe;
+        scoreEl.className = 'text-4xl font-bold font-mono-tech tracking-tight text-emerald-400';
+        pillEl.textContent = 'SAFE';
+        pillEl.className = 'px-2.5 py-1 rounded-full text-xs font-mono-tech font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+      }
+    }
+
+    // Initialize Chart.js Live Telemetry Charts
+    const timeLabels = Array.from({ length: 14 }, (_, i) => `-${(13 - i) * 2}s`);
+    const betSpeedData = [18, 21, 20, 24, 27, 29, 26, 31, 33, 35, 32, 36, 34, 38];
+    const lossVelData = [-12, -15, -18, -22, -20, -28, -31, -35, -39, -42, -40, -46, -48, -54];
+
+    const commonChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { color: 'rgba(148, 163, 184, 0.08)' },
+          ticks: { color: '#64748B', font: { family: 'JetBrains Mono', size: 10 } }
+        },
+        y: {
+          grid: { color: 'rgba(148, 163, 184, 0.08)' },
+          ticks: { color: '#64748B', font: { family: 'JetBrains Mono', size: 10 } }
+        }
+      }
+    };
+
+    const betSpeedCtx = document.getElementById('betSpeedChart').getContext('2d');
+    const betSpeedChart = new Chart(betSpeedCtx, {
+      type: 'line',
+      data: {
+        labels: [...timeLabels],
+        datasets: [{
+          data: betSpeedData,
+          borderColor: '#F59E0B',
+          backgroundColor: 'rgba(245, 158, 11, 0.12)',
+          borderWidth: 2,
+          pointRadius: 2,
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: commonChartOptions
+    });
+
+    const lossVelCtx = document.getElementById('lossVelocityChart').getContext('2d');
+    const lossVelocityChart = new Chart(lossVelCtx, {
+      type: 'bar',
+      data: {
+        labels: [...timeLabels],
+        datasets: [{
+          data: lossVelData,
+          backgroundColor: lossVelData.map(v => v < -35 ? '#EF4444' : '#F59E0B'),
+          borderRadius: 4
+        }]
+      },
+      options: commonChartOptions
+    });
+
+    // 1. Behavior Simulator Buttons
+    function simulatePlayerState(state) {
+      const target = players[selectedPlayerIndex];
+      const nowStr = new Date().toLocaleTimeString();
+
+      if (state === 'safe') {
+        target.score = 18;
+        target.cpm = 8;
+        target.lossVel = -3.50;
+        target.flag = 'Recreational Pace (Verified)';
+        target.chasing = 'LOW (0.05)';
+        target.stake = '+10%';
+        target.duration = '00h 30m';
+      } else if (state === 'warning') {
+        target.score = 58;
+        target.cpm = 24;
+        target.lossVel = -24.00;
+        target.flag = 'Accelerated Loss Chasing';
+        target.chasing = 'MED (0.62)';
+        target.stake = '+120%';
+        target.duration = '02h 10m';
+      } else if (state === 'critical') {
+        target.score = 94;
+        target.cpm = 45;
+        target.lossVel = -68.50;
+        target.flag = 'Severe Tilt / Rapid Deposits';
+        target.chasing = 'CRIT (0.98)';
+        target.stake = '+420%';
+        target.duration = '04h 15m';
+      }
+
+      updateRadarGauge(target);
+      renderPlayerQueue();
+
+      // Log action
+      addAuditLogEntry(`Simulated state switched to [${state.toUpperCase()}] for ${target.id}`, state === 'critical' ? 'red' : state === 'warning' ? 'amber' : 'emerald');
+    }
+
+    // 2 & 3. Working Intervention Controls & Popup Modal
+    function executeAction(actionType) {
+      const target = players[selectedPlayerIndex];
+
+      if (actionType === 'Reality-Check Popup' || actionType === 'Break Accepted via Popup') {
+        document.getElementById('modal-player-subtitle').textContent = `Player ${target.id} (${target.game})`;
+        document.getElementById('popup-modal').classList.remove('hidden');
+      }
+
+      let logColor = 'blue';
+      let message = `${target.id} - Action executed: ${actionType}`;
+
+      if (actionType.includes('Cool-Off')) {
+        target.score = Math.max(5, target.score - 40);
+        target.flag = 'Cool-Off Enforced (24H)';
+        logColor = 'red';
+      } else if (actionType.includes('Deposit Limit')) {
+        target.score = Math.max(10, target.score - 30);
+        target.flag = 'Dynamic Deposit Cap Applied';
+        logColor = 'amber';
+      } else if (actionType.includes('Break Accepted')) {
+        target.score = 12;
+        target.flag = 'Player Accepted Self-Exclusion Break';
+        logColor = 'emerald';
+        closePopupModal();
+      }
+
+      updateRadarGauge(target);
+      renderPlayerQueue();
+      addAuditLogEntry(message, logColor);
+    }
+
+    function closePopupModal() {
+      document.getElementById('popup-modal').classList.add('hidden');
+    }
+
+    // 4. Live Compliance Audit Log Adder
+    function addAuditLogEntry(text, color = 'blue') {
+      const log = document.getElementById('audit-log');
+      const timeStr = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      
+      let borderColor = 'border-blue-400';
+      let textColor = 'text-blue-200';
+      if (color === 'red') { borderColor = 'border-red-500'; textColor = 'text-red-200'; }
+      if (color === 'amber') { borderColor = 'border-amber-500'; textColor = 'text-amber-200'; }
+      if (color === 'emerald') { borderColor = 'border-emerald-500'; textColor = 'text-emerald-200'; }
+
+      entry.className = `p-2 rounded bg-slate-900/90 border-l-2 ${borderColor} flex justify-between items-center animate-pulse`;
+      entry.innerHTML = `<span class="${textColor}">${text}</span><span class="text-slate-500 text-[10px]">${timeStr}</span>`;
+      log.prepend(entry);
+    }
+
+    // Live Telemetry Simulation Loop
+    setInterval(() => {
+      const colors = getThemeColors();
+
+      // Update Charts
+      const nextBetSpeed = Math.max(8, Math.min(48, betSpeedData[betSpeedData.length - 1] + Math.floor(Math.random() * 7) - 3));
+      betSpeedData.shift();
+      betSpeedData.push(nextBetSpeed);
+      document.getElementById('live-cpm-val').textContent = nextBetSpeed;
+      betSpeedChart.update('none');
+
+      const nextLoss = Math.max(-75, Math.min(-5, lossVelData[lossVelData.length - 1] + (Math.random() * 10 - 5.2)));
+      lossVelData.shift();
+      lossVelData.push(Number(nextLoss.toFixed(1)));
+      lossVelocityChart.data.datasets[0].backgroundColor = lossVelData.map(v => v < -35 ? colors.risk : colors.warn);
+      document.getElementById('live-loss-val').textContent = `-€${Math.abs(nextLoss).toFixed(2)}`;
+      lossVelocityChart.update('none');
+
+      // Jitter Player Telemetry & Risk Scores
+      players.forEach(p => {
+        const delta = Math.floor(Math.random() * 5) - 2;
+        p.score = Math.max(8, Math.min(98, p.score + delta));
+        p.cpm = Math.max(4, p.cpm + (Math.floor(Math.random() * 3) - 1));
+        p.lossVel = Number((p.lossVel + (Math.random() * 2 - 1)).toFixed(2));
+      });
+
+      updateRadarGauge(players[selectedPlayerIndex]);
+      renderPlayerQueue();
+
+      // Header KPIs
+      document.getElementById('latency-val').textContent = `${11 + Math.floor(Math.random() * 6)} ms`;
+    }, 1800);
+
+    // Calm Mode Accessibility Toggle
+    const calmToggle = document.getElementById('calm-toggle');
+    const calmKnob = document.getElementById('calm-knob');
+    const calmStatusText = document.getElementById('calm-status-text');
+
+    calmToggle.addEventListener('click', () => {
+      isCalmMode = !isCalmMode;
+      document.body.classList.toggle('calm-mode', isCalmMode);
+      calmToggle.setAttribute('aria-checked', isCalmMode);
+
+      if (isCalmMode) {
+        calmKnob.classList.add('translate-x-6', 'bg-emerald-300');
+        calmKnob.classList.remove('bg-slate-300');
+        calmStatusText.textContent = 'Low-Stress Soothing Palette';
+      } else {
+        calmKnob.classList.remove('translate-x-6', 'bg-emerald-300');
+        calmKnob.classList.add('bg-slate-300');
+        calmStatusText.textContent = 'High-Contrast Telemetry';
+      }
+
+      const colors = getThemeColors();
+      betSpeedChart.data.datasets[0].borderColor = colors.warn;
+      betSpeedChart.update();
+      lossVelocityChart.data.datasets[0].backgroundColor = lossVelData.map(v => v < -35 ? colors.risk : colors.warn);
+      lossVelocityChart.update();
+      updateRadarGauge(players[selectedPlayerIndex]);
+    });
+
+    // Initial Render
+    renderPlayerQueue();
+    updateRadarGauge(players[0]);
+  </script>
+</body>
+</html>
